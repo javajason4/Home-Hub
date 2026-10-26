@@ -133,145 +133,48 @@
             </div>
 
             <!-- Header Controls -->
-            <div class="flex items-center space-x-3">
-                <!-- Sync Status Indicator -->
-                <div id="sync-status shadow-sm" class="flex items-center space-x-1 px-3 py-2 rounded-2xl glass glass-light dark:glass-dark text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Sync Room & Status Button -->
+                <button onclick="openSyncModal()" id="sync-status" class="flex items-center space-x-2 px-3 py-2 rounded-2xl glass glass-light dark:glass-dark text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
                     <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span id="sync-text" class="hidden sm:inline">Synced</span>
-                </div>
+                    <span id="sync-code-badge" class="ml-1 px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-mono text-[10px] font-bold">...</span>
+                </button>
 
                 <!-- Clock -->
-                <div class="px-4 py-2 rounded-2xl glass glass-light dark:glass-dark shadow-sm text-right">
-                    <span id="digital-clock" class="text-xl md:text-2xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">00:00</span>
+                <div class="px-3 sm:px-4 py-2 rounded-2xl glass glass-light dark:glass-dark shadow-sm text-right">
+                    <span id="digital-clock" class="text-lg md:text-2xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">00:00</span>
                 </div>
 
                 <!-- Dark Mode Toggle -->
-                <button id="theme-toggle" class="p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+                <button id="theme-toggle" class="p-2.5 sm:p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
                     <i id="theme-icon" data-lucide="moon" class="w-5 h-5 text-slate-700 dark:text-slate-200"></i>
                 </button>
 
                 <!-- Help / Setup Info Modal Trigger -->
-                <button onclick="toggleModal('info-modal')" class="p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+                <button onclick="toggleModal('info-modal')" class="p-2.5 sm:p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
                     <i data-lucide="help-circle" class="w-5 h-5 text-slate-700 dark:text-slate-200"></i>
                 </button>
             </div>
         </header>
 
-        <!-- DASHBOARD GRID -->
-        <main class="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 flex-1 overflow-hidden">
-
-            <!-- LEFT COLUMN: Weather & Quick Notes / Focus (5 Cols) -->
-            <div class="md:col-span-5 flex flex-col gap-4 md:gap-6 h-full overflow-hidden">
-                
-                <!-- Weather Widget -->
-                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex flex-col justify-between relative overflow-hidden">
-                    <div class="flex justify-between items-start z-10">
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <i data-lucide="map-pin" class="w-4 h-4 text-indigo-500"></i>
-                                <span id="weather-location" class="text-sm font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400">Loading...</span>
-                            </div>
-                            <div class="flex items-baseline space-x-2 mt-2">
-                                <span id="weather-temp" class="text-5xl font-extrabold tracking-tight">--°</span>
-                                <span id="weather-condition" class="text-lg font-medium text-slate-600 dark:text-slate-300">--</span>
-                            </div>
-                        </div>
-                        <div id="weather-icon-container" class="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
-                            <i data-lucide="cloud-sun" class="w-10 h-10"></i>
-                        </div>
-                    </div>
-
-                    <!-- Additional Details -->
-                    <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800/80 z-10 text-xs text-center">
-                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
-                            <span class="block text-slate-400">Humidity</span>
-                            <span id="weather-humidity" class="font-bold">--%</span>
-                        </div>
-                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
-                            <span class="block text-slate-400">Wind</span>
-                            <span id="weather-wind" class="font-bold">-- mph</span>
-                        </div>
-                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
-                            <span class="block text-slate-400">High / Low</span>
-                            <span id="weather-range" class="font-bold">--° / --°</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Daily Focus & Sticky Notes -->
-                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-2">
-                            <i data-lucide="sticky-note" class="w-5 h-5 text-amber-500"></i>
-                            <h2 class="font-bold text-lg">Quick Notes & Reminders</h2>
-                        </div>
-                        <span class="text-xs text-slate-400">Auto-saved</span>
-                    </div>
-                    <textarea id="quick-notes" placeholder="Tap here to write quick thoughts, shopping items, or reminders..." class="w-full h-full p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl border-0 resize-none focus:ring-2 focus:ring-indigo-500 outline-none text-sm leading-relaxed text-slate-700 dark:text-slate-200"></textarea>
-                </div>
-
-            </div>
-
-            <!-- CENTER COLUMN: Habit Tracker (7 Cols) -->
-            <div class="md:col-span-7 flex flex-col gap-4 md:gap-6 h-full overflow-hidden">
-
-                <!-- HABIT TRACKER WIDGET -->
-                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center space-x-2">
-                            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500"></i>
-                            <h2 class="font-bold text-lg">Daily Habits</h2>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span id="habit-progress-text" class="text-xs font-semibold text-slate-500 dark:text-slate-400">0/0 completed</span>
-                            <button onclick="toggleModal('add-habit-modal')" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium flex items-center transition">
-                                <i data-lucide="plus" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Progress Bar -->
-                    <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
-                        <div id="habit-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
-                    </div>
-
-                    <!-- Habits List Container -->
-                    <div id="habits-list" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                        <!-- Habit items dynamically populated -->
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- BOTTOM FULL WIDTH ROW: Weekly Meal Planner -->
-            <div class="md:col-span-12 h-64 md:h-72 flex flex-col">
-                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm h-full flex flex-col overflow-hidden">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-2">
-                            <i data-lucide="utensils" class="w-5 h-5 text-rose-500"></i>
-                            <h2 class="font-bold text-lg">Weekly Meal Planner</h2>
-                        </div>
-                        <span class="text-xs text-slate-400">Tap any day to edit meals</span>
-                    </div>
-
-                    <!-- Meal Days Grid (Horizontal Scroll on smaller, Grid on iPad) -->
-                    <div id="meal-planner-grid" class="grid grid-cols-7 gap-2 md:gap-3 flex-1 overflow-x-auto min-w-[700px] md:min-w-0">
-                        <!-- Dynamically populated 7 days -->
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- ADD HABIT MODAL -->
-    <div id="add-habit-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <!-- SYNC CODE MODAL -->
+    <div id="sync-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
         <div class="glass glass-light dark:glass-dark p-6 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h3 class="text-xl font-bold mb-4">Add New Habit</h3>
-            <input type="text" id="new-habit-input" placeholder="e.g. Morning Workout, Read 15 mins..." class="w-full p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-sm">
+            <h3 class="text-xl font-bold mb-2 flex items-center space-x-2">
+                <i data-lucide="radio" class="w-5 h-5 text-indigo-500"></i>
+                <span>Device Sync Code</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Enter the same Room Code on all your devices (iPad, iPhone, Mac, PC) to sync habits, meals, and notes together in real-time.
+            </p>
+            <div class="mb-4">
+                <label class="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">Room Identifier Code</label>
+                <input type="text" id="sync-room-input" placeholder="e.g. HOME1" uppercase class="w-full p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-center text-lg font-bold tracking-widest text-indigo-600 dark:text-indigo-400">
+            </div>
             <div class="flex justify-end space-x-3">
-                <button onclick="toggleModal('add-habit-modal')" class="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">Cancel</button>
-                <button onclick="addHabit()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-md shadow-indigo-500/20">Add Habit</button>
+                <button onclick="toggleModal('sync-modal')" class="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">Cancel</button>
+                <button onclick="saveSyncCode()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-md shadow-indigo-500/20">Connect Room</button>
             </div>
         </div>
     </div>
@@ -368,7 +271,9 @@
         ];
 
         let notes = localStorage.getItem('hub_notes') || '';
+        let roomCode = localStorage.getItem('hub_room_code') || Math.random().toString(36).substring(2, 7).toUpperCase();
         let isRemoteUpdate = false;
+        let unsubscribeSync = null;
 
         // --- INITIALIZATION ---
         window.onload = function() {
@@ -379,12 +284,20 @@
             renderMeals();
             initNotes();
             fetchWeather();
+            document.getElementById('sync-code-badge').innerText = roomCode;
         };
 
-        // --- CLOUD SYNC LISTENERS ---
+        // --- CLOUD SYNC LOGIC ---
         document.addEventListener('hub-auth-ready', () => {
             initCloudSync();
         });
+
+        // Backup timer if event fired before load
+        setTimeout(() => {
+            if (window.hubUser && !unsubscribeSync) {
+                initCloudSync();
+            }
+        }, 1000);
 
         function updateSyncStatus(status, isError = false) {
             const dot = document.getElementById('sync-dot');
@@ -401,49 +314,74 @@
             }
         }
 
+        function openSyncModal() {
+            document.getElementById('sync-room-input').value = roomCode;
+            toggleModal('sync-modal');
+        }
+
+        function saveSyncCode() {
+            const input = document.getElementById('sync-room-input').value.trim().toUpperCase();
+            if (input && input !== roomCode) {
+                roomCode = input;
+                localStorage.setItem('hub_room_code', roomCode);
+                document.getElementById('sync-code-badge').innerText = roomCode;
+                toggleModal('sync-modal');
+                initCloudSync();
+            } else {
+                toggleModal('sync-modal');
+            }
+        }
+
         async function initCloudSync() {
             if (!window.hubDb || !window.hubUser) return;
+            if (unsubscribeSync) unsubscribeSync();
 
-            const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-            
-            // Public document path according to strict rules
-            const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_state', 'main');
+            try {
+                const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                
+                // Firestore document path mapped to the unique Room Code
+                const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_rooms', roomCode);
 
-            // Listen for real-time cloud updates across all devices
-            onSnapshot(hubDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    isRemoteUpdate = true;
+                updateSyncStatus('Connecting...');
 
-                    if (data.habits) {
-                        habits = data.habits;
-                        localStorage.setItem('hub_habits', JSON.stringify(habits));
-                        renderHabits(false);
-                    }
-                    if (data.meals) {
-                        meals = data.meals;
-                        localStorage.setItem('hub_meals', JSON.stringify(meals));
-                        renderMeals(false);
-                    }
-                    if (data.notes !== undefined) {
-                        notes = data.notes;
-                        localStorage.setItem('hub_notes', notes);
-                        const notesTextarea = document.getElementById('quick-notes');
-                        if (notesTextarea && notesTextarea.value !== notes) {
-                            notesTextarea.value = notes;
+                unsubscribeSync = onSnapshot(hubDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        isRemoteUpdate = true;
+
+                        if (data.habits) {
+                            habits = data.habits;
+                            localStorage.setItem('hub_habits', JSON.stringify(habits));
+                            renderHabits(false);
                         }
-                    }
+                        if (data.meals) {
+                            meals = data.meals;
+                            localStorage.setItem('hub_meals', JSON.stringify(meals));
+                            renderMeals(false);
+                        }
+                        if (data.notes !== undefined) {
+                            notes = data.notes;
+                            localStorage.setItem('hub_notes', notes);
+                            const notesTextarea = document.getElementById('quick-notes');
+                            if (notesTextarea && notesTextarea.value !== notes) {
+                                notesTextarea.value = notes;
+                            }
+                        }
 
-                    isRemoteUpdate = false;
-                    updateSyncStatus('Synced');
-                } else {
-                    // Initialize cloud storage with initial local state
-                    saveToCloud();
-                }
-            }, (error) => {
-                console.error("Cloud Sync Error:", error);
+                        isRemoteUpdate = false;
+                        updateSyncStatus('Synced');
+                    } else {
+                        // First time initializing room
+                        saveToCloud();
+                    }
+                }, (error) => {
+                    console.warn("Cloud Sync listener error:", error);
+                    updateSyncStatus('Local Only', true);
+                });
+            } catch (err) {
+                console.error("Cloud initialization error:", err);
                 updateSyncStatus('Local Only', true);
-            });
+            }
         }
 
         async function saveToCloud() {
@@ -452,7 +390,7 @@
 
             try {
                 const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_state', 'main');
+                const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_rooms', roomCode);
 
                 await setDoc(hubDocRef, {
                     habits: habits,
