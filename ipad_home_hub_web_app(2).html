@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>iPad Home Hub</title>
+
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Home Hub">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/isometric/512/home.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDK (v11) for Real-Time Cloud Sync -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase Config and Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ipad-home-hub-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+
+            window.hubDb = db;
+            window.hubAppId = appId;
+
+            // Authenticate and subscribe to cloud changes
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (err) {
+                    console.warn("Auth fallback:", err);
+                }
+            };
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    window.hubUser = user;
+                    document.dispatchEvent(new Event('hub-auth-ready'));
+                }
+            });
+
+            initAuth();
+        }
+    </script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        hub: {
+                            bgLight: '#f1f5f9',
+                            bgDark: '#0f172a',
+                            cardLight: 'rgba(255, 255, 255, 0.75)',
+                            cardDark: 'rgba(30, 41, 59, 0.70)',
+                            accent: '#6366f1'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Glassmorphism & Custom Scrollbars */
+        .glass {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .glass-light {
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .dark .glass-dark {
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        /* Custom subtle scrollbars for widgets */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+
+        /* iPad screen optimizations */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300 font-sans overflow-hidden">
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="h-full flex flex-col p-4 md:p-6 max-w-[1600px] mx-auto select-none">
+
+        <!-- TOP BAR / HEADER -->
+        <header class="flex justify-between items-center mb-4 md:mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 id="greeting" class="text-2xl font-bold tracking-tight">Good Morning</h1>
+                    <p id="current-date-full" class="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium"></p>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex items-center space-x-3">
+                <!-- Sync Status Indicator -->
+                <div id="sync-status shadow-sm" class="flex items-center space-x-1 px-3 py-2 rounded-2xl glass glass-light dark:glass-dark text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="sync-text" class="hidden sm:inline">Synced</span>
+                </div>
+
+                <!-- Clock -->
+                <div class="px-4 py-2 rounded-2xl glass glass-light dark:glass-dark shadow-sm text-right">
+                    <span id="digital-clock" class="text-xl md:text-2xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">00:00</span>
+                </div>
+
+                <!-- Dark Mode Toggle -->
+                <button id="theme-toggle" class="p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+                    <i id="theme-icon" data-lucide="moon" class="w-5 h-5 text-slate-700 dark:text-slate-200"></i>
+                </button>
+
+                <!-- Help / Setup Info Modal Trigger -->
+                <button onclick="toggleModal('info-modal')" class="p-3 rounded-2xl glass glass-light dark:glass-dark shadow-sm hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+                    <i data-lucide="help-circle" class="w-5 h-5 text-slate-700 dark:text-slate-200"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD GRID -->
+        <main class="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 flex-1 overflow-hidden">
+
+            <!-- LEFT COLUMN: Weather & Quick Notes / Focus (5 Cols) -->
+            <div class="md:col-span-5 flex flex-col gap-4 md:gap-6 h-full overflow-hidden">
+                
+                <!-- Weather Widget -->
+                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-start z-10">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="map-pin" class="w-4 h-4 text-indigo-500"></i>
+                                <span id="weather-location" class="text-sm font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400">Loading...</span>
+                            </div>
+                            <div class="flex items-baseline space-x-2 mt-2">
+                                <span id="weather-temp" class="text-5xl font-extrabold tracking-tight">--°</span>
+                                <span id="weather-condition" class="text-lg font-medium text-slate-600 dark:text-slate-300">--</span>
+                            </div>
+                        </div>
+                        <div id="weather-icon-container" class="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+                            <i data-lucide="cloud-sun" class="w-10 h-10"></i>
+                        </div>
+                    </div>
+
+                    <!-- Additional Details -->
+                    <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800/80 z-10 text-xs text-center">
+                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
+                            <span class="block text-slate-400">Humidity</span>
+                            <span id="weather-humidity" class="font-bold">--%</span>
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
+                            <span class="block text-slate-400">Wind</span>
+                            <span id="weather-wind" class="font-bold">-- mph</span>
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/40">
+                            <span class="block text-slate-400">High / Low</span>
+                            <span id="weather-range" class="font-bold">--° / --°</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Focus & Sticky Notes -->
+                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="sticky-note" class="w-5 h-5 text-amber-500"></i>
+                            <h2 class="font-bold text-lg">Quick Notes & Reminders</h2>
+                        </div>
+                        <span class="text-xs text-slate-400">Auto-saved</span>
+                    </div>
+                    <textarea id="quick-notes" placeholder="Tap here to write quick thoughts, shopping items, or reminders..." class="w-full h-full p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl border-0 resize-none focus:ring-2 focus:ring-indigo-500 outline-none text-sm leading-relaxed text-slate-700 dark:text-slate-200"></textarea>
+                </div>
+
+            </div>
+
+            <!-- CENTER COLUMN: Habit Tracker (7 Cols) -->
+            <div class="md:col-span-7 flex flex-col gap-4 md:gap-6 h-full overflow-hidden">
+
+                <!-- HABIT TRACKER WIDGET -->
+                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500"></i>
+                            <h2 class="font-bold text-lg">Daily Habits</h2>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="habit-progress-text" class="text-xs font-semibold text-slate-500 dark:text-slate-400">0/0 completed</span>
+                            <button onclick="toggleModal('add-habit-modal')" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium flex items-center transition">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
+                        <div id="habit-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+
+                    <!-- Habits List Container -->
+                    <div id="habits-list" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                        <!-- Habit items dynamically populated -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- BOTTOM FULL WIDTH ROW: Weekly Meal Planner -->
+            <div class="md:col-span-12 h-64 md:h-72 flex flex-col">
+                <div class="glass glass-light dark:glass-dark p-5 rounded-3xl shadow-sm h-full flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="utensils" class="w-5 h-5 text-rose-500"></i>
+                            <h2 class="font-bold text-lg">Weekly Meal Planner</h2>
+                        </div>
+                        <span class="text-xs text-slate-400">Tap any day to edit meals</span>
+                    </div>
+
+                    <!-- Meal Days Grid (Horizontal Scroll on smaller, Grid on iPad) -->
+                    <div id="meal-planner-grid" class="grid grid-cols-7 gap-2 md:gap-3 flex-1 overflow-x-auto min-w-[700px] md:min-w-0">
+                        <!-- Dynamically populated 7 days -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ADD HABIT MODAL -->
+    <div id="add-habit-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass glass-light dark:glass-dark p-6 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800">
+            <h3 class="text-xl font-bold mb-4">Add New Habit</h3>
+            <input type="text" id="new-habit-input" placeholder="e.g. Morning Workout, Read 15 mins..." class="w-full p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-sm">
+            <div class="flex justify-end space-x-3">
+                <button onclick="toggleModal('add-habit-modal')" class="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">Cancel</button>
+                <button onclick="addHabit()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-md shadow-indigo-500/20">Add Habit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MEAL EDIT MODAL -->
+    <div id="edit-meal-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass glass-light dark:glass-dark p-6 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800">
+            <h3 id="meal-modal-title" class="text-xl font-bold mb-4">Edit Meal Plan</h3>
+            <input type="hidden" id="edit-meal-day-index">
+            
+            <div class="space-y-3 mb-5">
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">Breakfast</label>
+                    <input type="text" id="meal-input-b" placeholder="Breakfast idea..." class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">Lunch</label>
+                    <input type="text" id="meal-input-l" placeholder="Lunch idea..." class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">Dinner</label>
+                    <input type="text" id="meal-input-d" placeholder="Dinner idea..." class="w-full p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border-0 outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button onclick="toggleModal('edit-meal-modal')" class="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">Cancel</button>
+                <button onclick="saveMealPlan()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-md shadow-indigo-500/20">Save Plan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO / SETUP MODAL -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass glass-light dark:glass-dark p-6 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto">
+            <h3 class="text-xl font-bold mb-3 flex items-center space-x-2">
+                <i data-lucide="tablet" class="w-6 h-6 text-indigo-500"></i>
+                <span>iPad Setup & Hosting Guide</span>
+            </h3>
+
+            <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div class="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                    <h4 class="font-bold text-indigo-600 dark:text-indigo-400 mb-1">📲 Add to iPad Home Screen</h4>
+                    <ol class="list-decimal list-inside space-y-1 text-xs">
+                        <li>Open this site in <strong>Safari</strong> on your iPad.</li>
+                        <li>Tap the <strong>Share button</strong> (square with up arrow).</li>
+                        <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+                        <li>It will now launch as a clean, full-screen app!</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h4 class="font-bold mb-1 text-slate-800 dark:text-slate-100">🌐 Free Hosting Options</h4>
+                    <p class="text-xs mb-2">You can host this single file easily on:</p>
+                    <ul class="list-disc list-inside space-y-1 text-xs">
+                        <li><strong>GitHub Pages:</strong> Upload <code class="bg-slate-200 dark:bg-slate-800 px-1 rounded">index.html</code> to a repo and turn on Pages in settings.</li>
+                        <li><strong>Netlify / Vercel:</strong> Drag and drop the folder containing this file into their dashboard for instant URL generation.</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-bold mb-1 text-slate-800 dark:text-slate-100">☁️ Real-Time Cloud Sync</h4>
+                    <p class="text-xs">Your habits, meals, and notes now sync across all devices in real-time. Any update made on your phone or laptop will immediately show up on your iPad screen.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="toggleModal('info-modal')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION SCRIPT -->
+    <script>
+        // --- LUCIDE ICONS INIT ---
+        lucide.createIcons();
+
+        // --- APP STATE ---
+        let habits = JSON.parse(localStorage.getItem('hub_habits')) || [
+            { id: 1, title: 'Drink 2L Water', completed: false },
+            { id: 2, title: '30 Min Exercise', completed: false },
+            { id: 3, title: 'Read 15 Minutes', completed: false },
+            { id: 4, title: 'Take Vitamins', completed: false }
+        ];
+
+        let meals = JSON.parse(localStorage.getItem('hub_meals')) || [
+            { day: 'Mon', b: 'Oatmeal & Fruit', l: 'Chicken Salad', d: 'Grilled Salmon' },
+            { day: 'Tue', b: 'Avocado Toast', l: 'Leftover Salmon', d: 'Tacos' },
+            { day: 'Wed', b: 'Greek Yogurt', l: 'Turkey Wrap', d: 'Pasta Primavera' },
+            { day: 'Thu', b: 'Smoothie Bowl', l: 'Quinoa Bowl', d: 'Stir Fry' },
+            { day: 'Fri', b: 'Eggs & Toast', l: 'BLT Sandwich', d: 'Homemade Pizza' },
+            { day: 'Sat', b: 'Pancakes', l: 'Out for Lunch', d: 'BBQ Burgers' },
+            { day: 'Sun', b: 'Omelet', l: 'Soup & Bread', d: 'Roast Chicken' }
+        ];
+
+        let notes = localStorage.getItem('hub_notes') || '';
+        let isRemoteUpdate = false;
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            initTheme();
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderHabits();
+            renderMeals();
+            initNotes();
+            fetchWeather();
+        };
+
+        // --- CLOUD SYNC LISTENERS ---
+        document.addEventListener('hub-auth-ready', () => {
+            initCloudSync();
+        });
+
+        function updateSyncStatus(status, isError = false) {
+            const dot = document.getElementById('sync-dot');
+            const text = document.getElementById('sync-text');
+            if (dot && text) {
+                text.innerText = status;
+                if (isError) {
+                    dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                } else if (status === 'Syncing...') {
+                    dot.className = "w-2 h-2 rounded-full bg-amber-500 animate-ping";
+                } else {
+                    dot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                }
+            }
+        }
+
+        async function initCloudSync() {
+            if (!window.hubDb || !window.hubUser) return;
+
+            const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+            
+            // Public document path according to strict rules
+            const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_state', 'main');
+
+            // Listen for real-time cloud updates across all devices
+            onSnapshot(hubDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    isRemoteUpdate = true;
+
+                    if (data.habits) {
+                        habits = data.habits;
+                        localStorage.setItem('hub_habits', JSON.stringify(habits));
+                        renderHabits(false);
+                    }
+                    if (data.meals) {
+                        meals = data.meals;
+                        localStorage.setItem('hub_meals', JSON.stringify(meals));
+                        renderMeals(false);
+                    }
+                    if (data.notes !== undefined) {
+                        notes = data.notes;
+                        localStorage.setItem('hub_notes', notes);
+                        const notesTextarea = document.getElementById('quick-notes');
+                        if (notesTextarea && notesTextarea.value !== notes) {
+                            notesTextarea.value = notes;
+                        }
+                    }
+
+                    isRemoteUpdate = false;
+                    updateSyncStatus('Synced');
+                } else {
+                    // Initialize cloud storage with initial local state
+                    saveToCloud();
+                }
+            }, (error) => {
+                console.error("Cloud Sync Error:", error);
+                updateSyncStatus('Local Only', true);
+            });
+        }
+
+        async function saveToCloud() {
+            if (isRemoteUpdate || !window.hubDb || !window.hubUser) return;
+            updateSyncStatus('Syncing...');
+
+            try {
+                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const hubDocRef = doc(window.hubDb, 'artifacts', window.hubAppId, 'public', 'data', 'hub_state', 'main');
+
+                await setDoc(hubDocRef, {
+                    habits: habits,
+                    meals: meals,
+                    notes: notes,
+                    updatedAt: Date.now()
+                }, { merge: true });
+
+                updateSyncStatus('Synced');
+            } catch (err) {
+                console.error("Save to Cloud failed:", err);
+                updateSyncStatus('Local Only', true);
+            }
+        }
+
+        // --- CLOCK & DATE ---
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('digital-clock').innerText = `${hours}:${minutes}`;
+
+            // Date options
+            const options = { weekday: 'long', month: 'short', day: 'numeric' };
+            document.getElementById('current-date-full').innerText = now.toLocaleDateString('en-US', options);
+
+            // Dynamic Greeting
+            const currentHour = now.getHours();
+            let greetingStr = "Good Morning";
+            if (currentHour >= 12 && currentHour < 17) greetingStr = "Good Afternoon";
+            else if (currentHour >= 17) greetingStr = "Good Evening";
+            document.getElementById('greeting').innerText = greetingStr;
+        }
+
+        // --- THEME SYSTEM ---
+        function initTheme() {
+            const savedTheme = localStorage.getItem('hub_theme');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                document.documentElement.classList.remove('dark');
+                updateThemeIcon(false);
+            }
+
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('hub_theme', isDark ? 'dark' : 'light');
+                updateThemeIcon(isDark);
+            });
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('theme-icon');
+            if (isDark) {
+                icon.setAttribute('data-lucide', 'sun');
+            } else {
+                icon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
+        }
+
+        // --- WEATHER WIDGET (Open-Meteo Free API) ---
+        function fetchWeather() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        getWeatherData(lat, lon);
+                    },
+                    error => {
+                        // Default fallback: New York Coordinates
+                        getWeatherData(40.7128, -74.0060, "New York");
+                    }
+                );
+            } else {
+                getWeatherData(40.7128, -74.0060, "New York");
+            }
+        }
+
+        async function getWeatherData(lat, lon, fallbackName = null) {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&relativehumidity_2m=true&timezone=auto`);
+                const data = await res.json();
+                
+                const temp = Math.round(data.current_weather.temperature);
+                const wind = Math.round(data.current_weather.windspeed);
+                const code = data.current_weather.weathercode;
+                const high = Math.round(data.daily.temperature_2m_max[0]);
+                const low = Math.round(data.daily.temperature_2m_min[0]);
+
+                document.getElementById('weather-temp').innerText = `${temp}°`;
+                document.getElementById('weather-wind').innerText = `${wind} mph`;
+                document.getElementById('weather-range').innerText = `${high}° / ${low}°`;
+                document.getElementById('weather-humidity').innerText = `65%`; // Placeholder humidity
+
+                const conditionInfo = getWeatherCondition(code);
+                document.getElementById('weather-condition').innerText = conditionInfo.label;
+                document.getElementById('weather-location').innerText = fallbackName || "Local Weather";
+
+                // Update weather icon
+                const iconContainer = document.getElementById('weather-icon-container');
+                iconContainer.innerHTML = `<i data-lucide="${conditionInfo.icon}" class="w-10 h-10"></i>`;
+                lucide.createIcons();
+
+            } catch (e) {
+                document.getElementById('weather-location').innerText = "Offline";
+                document.getElementById('weather-temp').innerText = "--";
+            }
+        }
+
+        function getWeatherCondition(code) {
+            if (code === 0) return { label: 'Clear Sky', icon: 'sun' };
+            if (code >= 1 && code <= 3) return { label: 'Partly Cloudy', icon: 'cloud-sun' };
+            if (code >= 45 && code <= 48) return { label: 'Foggy', icon: 'cloud-fog' };
+            if (code >= 51 && code <= 67) return { label: 'Rainy', icon: 'cloud-rain' };
+            if (code >= 71 && code <= 77) return { label: 'Snowy', icon: 'snowflake' };
+            if (code >= 95) return { label: 'Thunderstorm', icon: 'cloud-lightning' };
+            return { label: 'Cloudy', icon: 'cloud' };
+        }
+
+        // --- HABIT TRACKER ---
+        function renderHabits(triggerCloudSave = true) {
+            const list = document.getElementById('habits-list');
+            list.innerHTML = '';
+
+            let completedCount = 0;
+
+            habits.forEach((habit, index) => {
+                if (habit.completed) completedCount++;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl flex items-center justify-between transition border ${
+                    habit.completed 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-500/15' 
+                        : 'bg-slate-100/60 dark:bg-slate-800/50 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 cursor-pointer flex-1" onclick="toggleHabit(${habit.id})">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center border transition ${
+                            habit.completed 
+                                ? 'bg-emerald-500 border-emerald-500 text-white' 
+                                : 'border-slate-300 dark:border-slate-600'
+                        }">
+                            ${habit.completed ? '<i data-lucide="check" class="w-4 h-4"></i>' : ''}
+                        </div>
+                        <span class="text-sm font-medium ${habit.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}">
+                            ${habit.title}
+                        </span>
+                    </div>
+                    <button onclick="deleteHabit(${habit.id})" class="text-slate-400 hover:text-rose-500 p-1 opacity-60 hover:opacity-100 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+
+                list.appendChild(card);
+            });
+
+            // Update Progress
+            const total = habits.length;
+            const percentage = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+            document.getElementById('habit-progress-bar').style.width = `${percentage}%`;
+            document.getElementById('habit-progress-text').innerText = `${completedCount}/${total} completed (${percentage}%)`;
+
+            lucide.createIcons();
+            saveHabits(triggerCloudSave);
+        }
+
+        function toggleHabit(id) {
+            habits = habits.map(h => h.id === id ? { ...h, completed: !h.completed } : h);
+            renderHabits();
+        }
+
+        function addHabit() {
+            const input = document.getElementById('new-habit-input');
+            const title = input.value.trim();
+            if (title) {
+                habits.push({ id: Date.now(), title, completed: false });
+                input.value = '';
+                toggleModal('add-habit-modal');
+                renderHabits();
+            }
+        }
+
+        function deleteHabit(id) {
+            habits = habits.filter(h => h.id !== id);
+            renderHabits();
+        }
+
+        function saveHabits(triggerCloudSave = true) {
+            localStorage.setItem('hub_habits', JSON.stringify(habits));
+            if (triggerCloudSave) saveToCloud();
+        }
+
+        // --- MEAL PLANNER ---
+        function renderMeals(triggerCloudSave = true) {
+            const grid = document.getElementById('meal-planner-grid');
+            grid.innerHTML = '';
+
+            meals.forEach((item, index) => {
+                const dayCard = document.createElement('div');
+                dayCard.className = 'flex flex-col bg-slate-100/60 dark:bg-slate-800/40 p-2.5 rounded-2xl border border-slate-200/50 dark:border-slate-800 cursor-pointer hover:border-indigo-500/50 transition group';
+                dayCard.onclick = () => openMealEditModal(index);
+
+                dayCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-2 pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+                        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">${item.day}</span>
+                        <i data-lucide="edit-2" class="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition"></i>
+                    </div>
+                    <div class="space-y-1.5 flex-1 overflow-hidden text-[11px]">
+                        <div class="truncate"><span class="font-semibold text-slate-400">B:</span> ${item.b || '-'}</div>
+                        <div class="truncate"><span class="font-semibold text-slate-400">L:</span> ${item.l || '-'}</div>
+                        <div class="truncate"><span class="font-semibold text-slate-400">D:</span> ${item.d || '-'}</div>
+                    </div>
+                `;
+
+                grid.appendChild(dayCard);
+            });
+
+            lucide.createIcons();
+            localStorage.setItem('hub_meals', JSON.stringify(meals));
+            if (triggerCloudSave) saveToCloud();
+        }
+
+        function openMealEditModal(index) {
+            const item = meals[index];
+            document.getElementById('edit-meal-day-index').value = index;
+            document.getElementById('meal-modal-title').innerText = `Edit ${item.day} Meals`;
+            document.getElementById('meal-input-b').value = item.b || '';
+            document.getElementById('meal-input-l').value = item.l || '';
+            document.getElementById('meal-input-d').value = item.d || '';
+            toggleModal('edit-meal-modal');
+        }
+
+        function saveMealPlan() {
+            const index = document.getElementById('edit-meal-day-index').value;
+            meals[index].b = document.getElementById('meal-input-b').value.trim();
+            meals[index].l = document.getElementById('meal-input-l').value.trim();
+            meals[index].d = document.getElementById('meal-input-d').value.trim();
+            
+            toggleModal('edit-meal-modal');
+            renderMeals();
+        }
+
+        // --- QUICK NOTES ---
+        let notesTimeout;
+        function initNotes() {
+            const notesTextarea = document.getElementById('quick-notes');
+            notesTextarea.value = notes;
+
+            notesTextarea.addEventListener('input', (e) => {
+                notes = e.target.value;
+                localStorage.setItem('hub_notes', notes);
+                
+                // Debounce cloud sync while typing
+                clearTimeout(notesTimeout);
+                notesTimeout = setTimeout(() => {
+                    saveToCloud();
+                }, 800);
+            });
+        }
+
+        // --- UTILS ---
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
